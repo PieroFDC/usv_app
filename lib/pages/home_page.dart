@@ -451,8 +451,6 @@ class _HomePageState extends State<HomePage> {
                                 onPressed: () {
                                   // _playSound("alert.wav");
                                   _showConfirmationDialog(false, null);
-                                  print("last: $lastNavMode");
-                                  print("navMode: $_navigationMode");
                                 },
                                 style: elevatedButtonStyle,
                                 child: SizedBox(
