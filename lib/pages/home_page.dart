@@ -9,7 +9,6 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:lottie/lottie.dart' as lottie_package;
 import 'package:syncfusion_flutter_gauges/gauges.dart';
 import 'package:usb_serial/usb_serial.dart';
-import 'package:toggle_switch/toggle_switch.dart';
 import 'package:audioplayers/audioplayers.dart';
 
 class HomePage extends StatefulWidget {
@@ -32,8 +31,6 @@ class _HomePageState extends State<HomePage> {
   String _data = "";
   final List<String> _messageBuffer = [];
 
-  int lastNavMode = 1;
-
   // MAPS
   final Set<Polyline> _polylines = {};
   final Location _locationController = Location();
@@ -44,18 +41,17 @@ class _HomePageState extends State<HomePage> {
   double _headingPhone = 0;
   double _distanceValue = 0;
 
+  bool sDialog = false;
+
   // from USV
   // <latUSV,lonUSV,heading,_velocityValue,numWaypoints>
+  // <-12.862966,-72.693329,120,0.5,0>
   double velocityValue = 0;
   double heading = 0;
   double latUSV = 0;
   double lonUSV = 0;
   int numWaypoints = 0; // Número de waypoints alcanzados
 
-  // to USV
-  // <_navigationMode,_start>
-  int _navigationMode = 0;
-  bool _start = false;
 
   @override
   void initState() {
@@ -99,22 +95,17 @@ class _HomePageState extends State<HomePage> {
   Future<void> _initSerialCommunication() async {
     await _port!.setDTR(true);
     await _port!.setRTS(true);
-    await _port!.setPortParameters(115200, UsbPort.DATABITS_8, UsbPort.STOPBITS_1, UsbPort.PARITY_NONE);
+    await _port!.setPortParameters(9600, UsbPort.DATABITS_8, UsbPort.STOPBITS_1, UsbPort.PARITY_NONE);
 
     // Escuchar el Stream de datos
     _port!.inputStream?.listen((Uint8List data) {
-      // Hacer algo con los datos, por ejemplo mostrarlos en un Text
       setState(() {
         _processData(data);
       });
-    }); 
+    });
+
   }
 
-  Future<void> _sendSerialData(int navMode, bool start) async {
-    String mode = navMode == 0 ? "M" : "A";
-    String dataToSend = "<$mode,$start>\r\n";
-    await _port!.write(Uint8List.fromList(dataToSend.codeUnits));
-  }
 
   void _processData(Uint8List data) {
     String newData = String.fromCharCodes(data);
@@ -187,11 +178,7 @@ class _HomePageState extends State<HomePage> {
     await player.play(AssetSource(file));
   }
 
-  void _showConfirmationDialog(bool type, index) {
-
-    if(type && (index != lastNavMode)) {
-      return;
-    }
+  void _showDialog() {
 
     _playSound("alert.wav");
 
@@ -199,15 +186,13 @@ class _HomePageState extends State<HomePage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text("Confirmación"),
+          title: const Text("Perligro"),
           content: Row(
             children: [
               SizedBox(
                 width: 200,
                 child: Text(
-                  type ?
-                  _navigationMode == 1 ? "¿Estás seguro que quieres cambiar al modo manual?" : "¿Estás seguro que quieres cambiar al modo automático?" :
-                  _start ? "¿Estás seguro que quieres detener el USV?" : "¿Estás seguro que quieres iniciar la navegación?"
+                    "El vehículo está a ${_distanceValue.toStringAsFixed(0)} metros, ¡recuerde que la distancia máxima recomendada es de 1Km!"
                 ),
               ),
               lottie_package.Lottie.asset(
@@ -219,24 +204,6 @@ class _HomePageState extends State<HomePage> {
           actions: [
             TextButton(
               onPressed: () {
-                setState(() {
-                  
-                });
-                Navigator.of(context).pop(); // Cerrar el diálogo
-              },
-              child: const Text("Cancelar"),
-            ),
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  if(!type) {
-                    _start = !_start;
-                  } else {
-                    _navigationMode = index!;
-                    lastNavMode = (_navigationMode != 1) ? 1 : 0;;
-                  }
-                  _sendSerialData(_navigationMode, _start);
-                });
                 Navigator.of(context).pop(); // Cerrar el diálogo
               },
               child: const Text("Aceptar"),
@@ -268,6 +235,13 @@ class _HomePageState extends State<HomePage> {
 
     // Calcular la distancia en kilómetros y convertirla a metros
     distanceMts = 1000 * radiusEarth * c;
+
+    if(distanceMts >= 750 && !sDialog) {
+      sDialog = true;
+      _showDialog();
+    } else if(distanceMts < 750 && sDialog) {
+      sDialog = false;
+    }
 
     return distanceMts;
   }
@@ -304,15 +278,9 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    LatLng startLocation = LatLng(_waypoints[0][0], _waypoints[0][1]);
+    double widgetsWidth = (MediaQuery.of(context).size.width / 2) * 0.78;
 
-    final ButtonStyle elevatedButtonStyle = ElevatedButton.styleFrom(
-      backgroundColor: _start ? Colors.red : Colors.green,
-      elevation: 10,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10.0)
-      )
-    );
+    LatLng startLocation = LatLng(_waypoints[0][0], _waypoints[0][1]);
 
     // Crea la colección de marcadores
     Set<Marker> markers = Set.from(_latLngList.asMap().entries.map((entry) {
@@ -378,107 +346,84 @@ class _HomePageState extends State<HomePage> {
               mapToolbarEnabled: false,
             ),
             Positioned(
-              bottom: 5.0,
-              left: 5.0,
-              right: 5.0,
-              child: Container(
-                padding: const EdgeInsets.all(15.0),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE9E9E9),
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(30),
-                    bottomRight: Radius.circular(30),
-                    topLeft: Radius.circular(10),
-                    topRight: Radius.circular(10),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.shade800.withOpacity(0.5),
-                      spreadRadius: 6,
-                      blurRadius: 50,
-                    ),
-                  ],
+              bottom: 25.0,
+              left: 25.0,
+              right: 25.0,
+              child: Card(
+                elevation: 15.0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15),
                 ),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              "Modo De Navegación",
-                              style: TextStyle(
-                                      color: Color(0xFF252525),
-                                      fontSize: 13,
-                                      fontFamily: 'Roboto Condensed',
-                                      fontWeight: FontWeight.w400,
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.only(top: 5),
-                              child: ToggleSwitch(
-                                minWidth: 85,
-                                minHeight: 80,
-                                initialLabelIndex: _navigationMode,
-                                cornerRadius: 10.0,
-                                activeFgColor: Colors.white,
-                                inactiveBgColor: const Color(0xFF252525),
-                                inactiveFgColor: Colors.white,
-                                totalSwitches: 2,
-                                centerText: true,
-                                isVertical: false,
-                                labels: const ['M', 'A'],
-                                icons: const [Icons.gamepad_rounded, Icons.navigation_rounded],
-                                activeBgColors: [[Colors.blue.shade800],[Colors.blue.shade800]],
-                                customTextStyles: const [
-                                  TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 15.0,
-                                      fontFamily: 'Roboto Condensed',
-                                      fontWeight: FontWeight.w500
-                                      ),
-                                ],
-                                onToggle: (index) {
-                                  // _playSound("alert.wav");
-                                  _showConfirmationDialog(true, index);
-                                },
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.only(top: 10),
-                              child: ElevatedButton(
-                                onPressed: () {
-                                  // _playSound("alert.wav");
-                                  _showConfirmationDialog(false, null);
-                                },
-                                style: elevatedButtonStyle,
-                                child: SizedBox(
-                                  width: 140,
-                                  height: 80,
-                                  child: Center(
-                                    child: Text(
-                                      _start ? "STOP" : "START",
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 40,
-                                        fontFamily: 'Roboto Condensed',
-                                        fontWeight: FontWeight.w400,
-                                      ),
-                                    ),
+                // color: const Color(0xFFE9E9E9),
+                child: Padding(
+                  padding: const EdgeInsets.all(10.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Column(
+                        children: [
+                          Column(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                width: widgetsWidth,
+                                child: SfLinearGauge(
+                                  interval: 0.5,
+                                  maximum: 3,
+                                  animateAxis: true,
+                                  animateRange: true,
+                                  labelPosition: LinearLabelPosition.outside,
+                                  tickPosition: LinearElementPosition.outside,
+                                  axisLabelStyle: const TextStyle(
+                                    color: Color(0xFF252525),
+                                    fontSize: 10,
+                                    fontFamily: 'Roboto Condensed',
+                                    fontWeight: FontWeight.w500,
                                   ),
+                                  onGenerateLabels: () {
+                                    return <LinearAxisLabel>[
+                                      const LinearAxisLabel(text: '0', value: 0),
+                                      const LinearAxisLabel(text: '1', value: 1),
+                                      const LinearAxisLabel(text: '2', value: 2),
+                                      const LinearAxisLabel(text: '3', value: 3),
+                                    ];
+                                  },
+                                  axisTrackStyle: const LinearAxisTrackStyle(
+                                      thickness: 5, color: Colors.transparent),
+                                  markerPointers: <LinearMarkerPointer>[
+                                    LinearShapePointer(
+                                        value: velocityValue,
+                                        color: Colors.blue.shade800,
+                                        width: 18,
+                                        position: LinearElementPosition.cross,
+                                        shapeType: LinearShapePointerType.triangle,
+                                        height: 10),
+                                  ],
+                                  ranges: const <LinearGaugeRange>[
+                                    LinearGaugeRange(
+                                      midValue: 0,
+                                      endValue: 1.5,
+                                      startWidth: 10,
+                                      midWidth: 10,
+                                      endWidth: 10,
+                                      position: LinearElementPosition.cross,
+                                      color: Colors.green,
+                                    ),
+                                    LinearGaugeRange(
+                                      startValue: 1.5,
+                                      midValue: 0,
+                                      startWidth: 10,
+                                      midWidth: 10,
+                                      endWidth: 10,
+                                      position: LinearElementPosition.cross,
+                                      color: Colors.red,
+                                    )
+                                  ]
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.only(left: 10),
-                              child: Text(
-                                "Ángulo De Rumbo: ${heading.ceil()}°",
+                              Text(
+                                "Velocidad: ${velocityValue.toStringAsFixed(1)} m/s",
                                 style: const TextStyle(
                                         color: Color(0xFF252525),
                                         fontSize: 13,
@@ -486,210 +431,129 @@ class _HomePageState extends State<HomePage> {
                                         fontWeight: FontWeight.w400,
                                 ),
                               ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.only(left: 10, top: 5),
-                              child: Container(
-                                width: 170,
-                                height: 170,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF252525),
-                                  borderRadius: BorderRadius.circular(10.0),
+                            ],
+                          ),
+                          Column(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.only(top: 40, bottom: 8),
+                                width: widgetsWidth,
+                                child: SfLinearGauge(
+                                  interval: 0.5,
+                                  maximum: 1000,
+                                  animateAxis: true,
+                                  animateRange: true,
+                                  labelPosition: LinearLabelPosition.outside,
+                                  tickPosition: LinearElementPosition.outside,
+                                  axisLabelStyle: const TextStyle(
+                                    color: Color(0xFF252525),
+                                    fontSize: 10,
+                                    fontFamily: 'Roboto Condensed',
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  onGenerateLabels: () {
+                                    return <LinearAxisLabel>[
+                                      const LinearAxisLabel(text: '0', value: 0),
+                                      const LinearAxisLabel(text: '500', value: 500),
+                                      const LinearAxisLabel(text: '750', value: 750),
+                                      const LinearAxisLabel(text: '1k', value: 1000),
+                                    ];
+                                  },
+                                  axisTrackStyle: const LinearAxisTrackStyle(
+                                      thickness: 5, color: Colors.transparent),
+                                  markerPointers: <LinearMarkerPointer>[
+                                    LinearShapePointer(
+                                        value: _distanceValue,
+                                        color: Colors.blue.shade800,
+                                        width: 18,
+                                        position: LinearElementPosition.cross,
+                                        shapeType: LinearShapePointerType.triangle,
+                                        height: 10),
+                                  ],
+                                  ranges: const <LinearGaugeRange>[
+                                    LinearGaugeRange(
+                                      midValue: 0,
+                                      endValue: 500,
+                                      startWidth: 10,
+                                      midWidth: 10,
+                                      endWidth: 10,
+                                      position: LinearElementPosition.cross,
+                                      color: Colors.green,
+                                    ),
+                                    LinearGaugeRange(
+                                      startValue: 500,
+                                      midValue: 0,
+                                      endValue: 750,
+                                      startWidth: 10,
+                                      midWidth: 10,
+                                      endWidth: 10,
+                                      position: LinearElementPosition.cross,
+                                      color: Colors.orange,
+                                    ),
+                                    LinearGaugeRange(
+                                      startValue: 750,
+                                      midValue: 0,
+                                      endValue: 1000,
+                                      startWidth: 10,
+                                      midWidth: 10,
+                                      endWidth: 10,
+                                      position: LinearElementPosition.cross,
+                                      color: Colors.red,
+                                    )
+                                  ]
                                 ),
+                              ),
+                              Text(
+                                "Distancia: ${_distanceValue.toStringAsFixed(1)} m",
+                                style: const TextStyle(
+                                        color: Color(0xFF252525),
+                                        fontSize: 13,
+                                        fontFamily: 'Roboto Condensed',
+                                        fontWeight: FontWeight.w400,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      Container(
+                        width: widgetsWidth,
+                        height: widgetsWidth,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF252525),
+                          borderRadius: BorderRadius.circular(10.0),
+                        ),
+                        child: Transform.rotate(
+                          angle: - _headingPhone.ceil() * pi / 180,
+                          child: Stack(
+                            children: [
+                              Positioned.fill(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(3.0),
+                                  child: Image.asset("assets/NSEW_compass.png"),
+                                ),
+                              ),
+                    
+                              Center(
                                 child: Transform.rotate(
-                                  angle: - _headingPhone.ceil() * pi / 180,
-                                  child: Stack(
-                                    children: [
-                                      Positioned.fill(
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(3.0),
-                                          child: Image.asset("assets/NSEW_compass.png"),
-                                        ),
+                                  angle: - (heading - 90) * pi / 180,
+                                  child: Container(
+                                    width: 100,
+                                    height: 100,
+                                    decoration: const BoxDecoration(
+                                      image: DecorationImage(
+                                        image: AssetImage("assets/compass.png"), // Reemplaza con la ruta de tu imagen
                                       ),
-    
-                                      Center(
-                                        child: Transform.rotate(
-                                          angle: - (heading - 90) * pi / 180,
-                                          child: Container(
-                                            width: 130,
-                                            height: 130,
-                                            decoration: const BoxDecoration(
-                                              image: DecorationImage(
-                                                image: AssetImage("assets/compass.png"), // Reemplaza con la ruta de tu imagen
-                                              ),
-                                            ),
-                                          ),
-                                        )
-                                      ),
-                                    ],
+                                    ),
                                   ),
-                                ),
+                                )
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ],
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Column(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.only(top: 15, bottom: 8),
-                              width: 170,
-                              child: SfLinearGauge(
-                                interval: 0.5,
-                                maximum: 3,
-                                animateAxis: true,
-                                animateRange: true,
-                                labelPosition: LinearLabelPosition.outside,
-                                tickPosition: LinearElementPosition.outside,
-                                axisLabelStyle: const TextStyle(
-                                  color: Color(0xFF252525),
-                                  fontSize: 10,
-                                  fontFamily: 'Roboto Condensed',
-                                  fontWeight: FontWeight.w500,
-                                ),
-                                onGenerateLabels: () {
-                                  return <LinearAxisLabel>[
-                                    const LinearAxisLabel(text: '0', value: 0),
-                                    const LinearAxisLabel(text: '1', value: 1),
-                                    const LinearAxisLabel(text: '2', value: 2),
-                                    const LinearAxisLabel(text: '3', value: 3),
-                                  ];
-                                },
-                                axisTrackStyle: const LinearAxisTrackStyle(
-                                    thickness: 5, color: Colors.transparent),
-                                markerPointers: <LinearMarkerPointer>[
-                                  LinearShapePointer(
-                                      value: velocityValue,
-                                      color: Colors.blue.shade800,
-                                      width: 18,
-                                      position: LinearElementPosition.cross,
-                                      shapeType: LinearShapePointerType.triangle,
-                                      height: 10),
-                                ],
-                                ranges: const <LinearGaugeRange>[
-                                  LinearGaugeRange(
-                                    midValue: 0,
-                                    endValue: 1.5,
-                                    startWidth: 10,
-                                    midWidth: 10,
-                                    endWidth: 10,
-                                    position: LinearElementPosition.cross,
-                                    color: Colors.green,
-                                  ),
-                                  LinearGaugeRange(
-                                    startValue: 1.5,
-                                    midValue: 0,
-                                    startWidth: 10,
-                                    midWidth: 10,
-                                    endWidth: 10,
-                                    position: LinearElementPosition.cross,
-                                    color: Colors.red,
-                                  )
-                                ]
-                              ),
-                            ),
-                            Text(
-                              "Velocidad: $velocityValue m/s",
-                              style: const TextStyle(
-                                      color: Color(0xFF252525),
-                                      fontSize: 13,
-                                      fontFamily: 'Roboto Condensed',
-                                      fontWeight: FontWeight.w400,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(
-                          width: 10,
-                        ),
-                        Column(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.only(top: 15, bottom: 8),
-                              width: 170,
-                              child: SfLinearGauge(
-                                interval: 0.5,
-                                maximum: 1000,
-                                animateAxis: true,
-                                animateRange: true,
-                                labelPosition: LinearLabelPosition.outside,
-                                tickPosition: LinearElementPosition.outside,
-                                axisLabelStyle: const TextStyle(
-                                  color: Color(0xFF252525),
-                                  fontSize: 10,
-                                  fontFamily: 'Roboto Condensed',
-                                  fontWeight: FontWeight.w500,
-                                ),
-                                onGenerateLabels: () {
-                                  return <LinearAxisLabel>[
-                                    const LinearAxisLabel(text: '0', value: 0),
-                                    const LinearAxisLabel(text: '500', value: 500),
-                                    const LinearAxisLabel(text: '750', value: 750),
-                                    const LinearAxisLabel(text: '1k', value: 1000),
-                                  ];
-                                },
-                                axisTrackStyle: const LinearAxisTrackStyle(
-                                    thickness: 5, color: Colors.transparent),
-                                markerPointers: <LinearMarkerPointer>[
-                                  LinearShapePointer(
-                                      value: _distanceValue,
-                                      color: Colors.blue.shade800,
-                                      width: 18,
-                                      position: LinearElementPosition.cross,
-                                      shapeType: LinearShapePointerType.triangle,
-                                      height: 10),
-                                ],
-                                ranges: const <LinearGaugeRange>[
-                                  LinearGaugeRange(
-                                    midValue: 0,
-                                    endValue: 500,
-                                    startWidth: 10,
-                                    midWidth: 10,
-                                    endWidth: 10,
-                                    position: LinearElementPosition.cross,
-                                    color: Colors.green,
-                                  ),
-                                  LinearGaugeRange(
-                                    startValue: 500,
-                                    midValue: 0,
-                                    endValue: 750,
-                                    startWidth: 10,
-                                    midWidth: 10,
-                                    endWidth: 10,
-                                    position: LinearElementPosition.cross,
-                                    color: Colors.orange,
-                                  ),
-                                  LinearGaugeRange(
-                                    startValue: 750,
-                                    midValue: 0,
-                                    endValue: 1000,
-                                    startWidth: 10,
-                                    midWidth: 10,
-                                    endWidth: 10,
-                                    position: LinearElementPosition.cross,
-                                    color: Colors.red,
-                                  )
-                                ]
-                              ),
-                            ),
-                            Text(
-                              "Distancia: ${_distanceValue.toStringAsFixed(1)} m",
-                              style: const TextStyle(
-                                      color: Color(0xFF252525),
-                                      fontSize: 13,
-                                      fontFamily: 'Roboto Condensed',
-                                      fontWeight: FontWeight.w400,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

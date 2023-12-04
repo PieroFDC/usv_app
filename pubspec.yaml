@@ -40,7 +40,6 @@ dependencies:
   usb_serial: ^0.5.1
   google_maps_flutter: ^2.5.0
   xml: ^6.3.0
-  toggle_switch: ^2.1.0
   syncfusion_flutter_gauges: ^23.2.4
   audioplayers: ^5.2.1
   location: ^5.0.3
