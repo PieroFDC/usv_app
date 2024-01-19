@@ -1,3 +1,4 @@
+import 'package:another_flushbar/flushbar.dart';
 import 'package:location/location.dart';
 import 'dart:ui' as ui;
 import 'dart:async';
@@ -44,14 +45,18 @@ class _HomePageState extends State<HomePage> {
   bool sDialog = false;
 
   // from USV
-  // <latUSV,lonUSV,heading,_velocityValue,numWaypoints>
-  // <-12.862966,-72.693329,120,0.5,0>
+  // <latUSV,lonUSV,heading,_velocityValue,numWaypoints, navMode, startNav>
+  // <-12.862966,-72.693329,120,0.5,0,M,false>
   double velocityValue = 0;
   double heading = 0;
   double latUSV = 0;
   double lonUSV = 0;
   int numWaypoints = 0; // Número de waypoints alcanzados
+  String navMode = "M";
+  bool startNav = false;
 
+  String valNavMode = "M";
+  bool valStartNav = false;
 
   @override
   void initState() {
@@ -106,7 +111,6 @@ class _HomePageState extends State<HomePage> {
 
   }
 
-
   void _processData(Uint8List data) {
     String newData = String.fromCharCodes(data);
 
@@ -144,17 +148,31 @@ class _HomePageState extends State<HomePage> {
 
     // Eliminar caracteres '<' y '>'
     message = message.replaceAll(RegExp(r'[<>]'), '');
-
+    print(message);
     List<String> partes = message.split(',');
 
-    // Asignar valores a las variables
-    latUSV = double.parse(partes[0]);
-    lonUSV = double.parse(partes[1]);
-    heading = double.parse(partes[2]);
-    velocityValue = double.parse(partes[3]);
-    numWaypoints = int.parse(partes[4]);
+    if(partes.length == 7) {
+      // Asignar valores a las variables
+      latUSV = double.parse(partes[0]);
+      lonUSV = double.parse(partes[1]);
+      heading = double.parse(partes[2]);
+      velocityValue = double.parse(partes[3]);
+      numWaypoints = int.parse(partes[4]);
+      navMode = partes[5];
+      startNav = bool.tryParse(partes[6], caseSensitive: false)!;
 
-    _distanceValue = _calculateDistance(currentLocation!.latitude, currentLocation!.longitude, latUSV, lonUSV);
+      _distanceValue = _calculateDistance(currentLocation!.latitude, currentLocation!.longitude, latUSV, lonUSV);
+
+      if(navMode != valNavMode) {
+        flushMessage(navMode == "M" ? "¡Se cambió al modo manual!" : "¡Se cambió al modo automático!");
+        valNavMode = navMode;
+      }
+      
+      if(startNav != valStartNav) {
+        flushMessage(startNav ? "¡Se inició la navegación!" : "¡Se detuvo la navegación!");
+        valStartNav = startNav;
+      }
+    }
   }
 
   void _drawInitialPolyline() async {
@@ -212,6 +230,32 @@ class _HomePageState extends State<HomePage> {
         );
       },
     );
+  }
+
+  void flushMessage(String message) {
+    Flushbar(
+      title: 'Alerta',
+      message: message,
+      icon: const Icon(
+        Icons.crisis_alert_rounded,
+        color: Colors.white,
+        ),
+      forwardAnimationCurve: Curves.easeInOutBack,
+      reverseAnimationCurve: Curves.easeInOutBack,
+      backgroundColor: const Color(0xFF252525),
+      margin: const EdgeInsets.all(20),
+      borderRadius: BorderRadius.circular(10),
+      duration: const Duration(seconds: 3),
+      flushbarPosition: FlushbarPosition.TOP,
+      flushbarStyle: FlushbarStyle.FLOATING,
+      boxShadows: const [
+        BoxShadow(
+          offset: Offset(10, 10),
+          blurRadius: 30.0,
+          color: ui.Color.fromARGB(118, 49, 49, 49),
+        )
+      ],
+    ).show(context);
   }
 
   double _calculateDistance(double lat1, double lng1, double lat2, double lng2) {
@@ -350,11 +394,10 @@ class _HomePageState extends State<HomePage> {
               left: 25.0,
               right: 25.0,
               child: Card(
-                elevation: 15.0,
+                elevation: 10.0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(15),
                 ),
-                // color: const Color(0xFFE9E9E9),
                 child: Padding(
                   padding: const EdgeInsets.all(10.0),
                   child: Row(
@@ -556,6 +599,116 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
               ),
+            ),
+
+            Positioned(
+              bottom: 210.0,
+              left: 25.0,
+              child: Card(
+                elevation: 10.0,
+                color: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 500),
+                  curve: Curves.easeInOut,
+                  height: 60,
+                  width: 80,
+                  decoration: BoxDecoration(
+                    color: navMode == "M" ? Colors.white : Colors.transparent,
+                    borderRadius: BorderRadius.circular(15.0),
+                  ),
+                  child: Center(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          navMode == "M" ? Icons.gamepad_rounded : Icons.near_me_rounded,
+                          color: const Color(0xFF252525),
+                          size: 20,
+                        ),
+
+                        Padding(
+                          padding: const EdgeInsets.only(top: 5),
+                          child: Text(
+                            navMode == "M" ? 'Manual' : 'Automático',
+                            style: const TextStyle(
+                              color: Color(0xFF252525),
+                              fontSize: 13,
+                              fontFamily: 'Roboto Condensed',
+                              fontWeight: FontWeight.w400,
+                              shadows: [
+                                Shadow(
+                                  color: ui.Color.fromARGB(169, 0, 0, 0),
+                                  offset: Offset(2, 2),
+                                  blurRadius: 30,
+                                ),
+                              ]
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              )
+            ),
+
+            Positioned(
+              bottom: 210.0,
+              right: 25.0,
+              child: Card(
+                elevation: 10.0,
+                color: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 500),
+                  curve: Curves.easeInOut,
+                  height: 60,
+                  width: 80,
+                  decoration: BoxDecoration(
+                    color: startNav ? Colors.green : Colors.red,
+                    borderRadius: BorderRadius.circular(15.0),
+                  ),
+                  child: Center(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          startNav ? Icons.play_arrow_rounded : Icons.pause_rounded,
+                          color: Colors.white,
+                          size: 25,
+                        ),
+
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            startNav ? 'Start' : 'Stop',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontFamily: 'Roboto Condensed',
+                              fontWeight: FontWeight.w400,
+                              shadows: [
+                                Shadow(
+                                  color: ui.Color.fromARGB(169, 0, 0, 0),
+                                  offset: Offset(2, 2),
+                                  blurRadius: 30,
+                                ),
+                              ]
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              )
             ),
           ],
         ),
