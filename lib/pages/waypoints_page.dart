@@ -153,8 +153,19 @@ class _WaypointPageState extends State<WaypointPage> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _pickFile,
-        label: Text(buttonText),
-        icon: const Icon(Icons.cloud_upload),
+        label: Text(
+          buttonText,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 15,
+            fontFamily: 'Roboto Condensed',
+            fontWeight: FontWeight.w400,
+          ),
+        ),
+        icon: const Icon(
+          Icons.cloud_upload,
+          color: Colors.white,
+        ),
         elevation: 4.0,
         backgroundColor: buttonColor,
         tooltip: 'Cargar Waypoints',

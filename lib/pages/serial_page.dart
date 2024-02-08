@@ -114,8 +114,18 @@ class _SerialPageState extends State<SerialPage> {
               backgroundColor: const Color(0xFF252525),
             ),
 
-            child: Text(_device == device ? "Desconectar" : "Conectar"),
-          )));
+            child: Text(
+              _device == device ? "Desconectar" : "Conectar",
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 15,
+                fontFamily: 'Roboto Condensed',
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          )
+        )
+      );
     }
   }
 
@@ -250,11 +260,22 @@ class _SerialPageState extends State<SerialPage> {
       floatingActionButton: FloatingActionButton.extended(
         // onPressed: _status == "Conectado" ? () => _navigateToHomePage() : null,
         onPressed: () => _navigateToHomePage(),
-        icon: const Icon(Icons.queue_play_next),
+        icon: const Icon(
+          Icons.queue_play_next,
+          color: Colors.white,
+        ),
         elevation: _status == "Conectado" ? 10.0 : 0.0,
         backgroundColor: _status == "Conectado" ? Colors.green.shade700 : Colors.grey,
         tooltip: 'Cargar Waypoints',
-        label: const Text("Siguiente"),
+        label: const Text(
+          "Siguiente",
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 15,
+            fontFamily: 'Roboto Condensed',
+            fontWeight: FontWeight.w400,
+          ),
+        ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );

@@ -36,11 +36,11 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.2
   file_picker: ^6.1.1
-  lottie: ^2.7.0
+  lottie: ^3.0.0
   usb_serial: ^0.5.1
-  google_maps_flutter: ^2.5.0
-  xml: ^6.3.0
-  syncfusion_flutter_gauges: ^23.2.4
+  google_maps_flutter: ^2.5.3
+  xml: ^6.5.0
+  syncfusion_flutter_gauges: ^24.2.4
   audioplayers: ^5.2.1
   location: ^5.0.3
   flutter_compass: ^0.8.0

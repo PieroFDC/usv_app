@@ -55,7 +55,7 @@ class StartPage extends StatelessWidget {
                           Shadow(
                             color: Color.fromARGB(120, 0, 0, 0),
                             offset: Offset(10, 10),
-                            blurRadius: 80,
+                            blurRadius: 100,
                           ),
                         ]
                       ),
@@ -71,7 +71,7 @@ class StartPage extends StatelessWidget {
                           Shadow(
                             color: Color.fromARGB(120, 0, 0, 0),
                             offset: Offset(10, 10),
-                            blurRadius: 80,
+                            blurRadius: 100,
                           ),
                         ]
                       ),

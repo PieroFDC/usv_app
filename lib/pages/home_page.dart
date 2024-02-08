@@ -148,7 +148,7 @@ class _HomePageState extends State<HomePage> {
 
     // Eliminar caracteres '<' y '>'
     message = message.replaceAll(RegExp(r'[<>]'), '');
-    print(message);
+    // print(message);
     List<String> partes = message.split(',');
 
     if(partes.length == 7) {
@@ -344,10 +344,8 @@ class _HomePageState extends State<HomePage> {
       );
     }));
 
-    return WillPopScope(
-      onWillPop: () async {
-        return false;
-      },
+    return PopScope(
+      canPop: false,
       child: Scaffold(
         body: Stack(
           children: [
@@ -394,7 +392,9 @@ class _HomePageState extends State<HomePage> {
               left: 25.0,
               right: 25.0,
               child: Card(
-                elevation: 10.0,
+                elevation: 20.0,
+                color: Colors.white,
+                surfaceTintColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(15),
                 ),
