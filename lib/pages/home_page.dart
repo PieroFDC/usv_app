@@ -177,7 +177,11 @@ class _HomePageState extends State<HomePage> {
       sonic = partes[9] == "1" ? true : false;
       calibration = int.parse(partes[10]);
 
-      _distanceValue = _calculateDistance(currentLocation!.latitude, currentLocation!.longitude, latUSV, lonUSV);
+      if(latUSV == -999.0 || lonUSV == -999.0) {
+        _distanceValue = 0.0;
+      } else {
+        _distanceValue = _calculateDistance(currentLocation!.latitude, currentLocation!.longitude, latUSV, lonUSV);
+      }
 
       if(navMode != valNavMode) {
         flushMessage(navMode == "M" ? "¡Se cambió al modo manual!" : "¡Se cambió al modo automático!");
@@ -252,6 +256,7 @@ class _HomePageState extends State<HomePage> {
     Flushbar(
       title: 'Alerta',
       message: message,
+      positionOffset: 60,
       icon: const Icon(
         Icons.crisis_alert_rounded,
         color: Colors.white,
@@ -656,7 +661,7 @@ class _HomePageState extends State<HomePage> {
                   height: 60,
                   width: 80,
                   decoration: BoxDecoration(
-                    color: navMode == "M" ? Colors.white : Colors.transparent,
+                    color: navMode == "M" ? Colors.white : Colors.grey.shade300,
                     borderRadius: BorderRadius.circular(15.0),
                   ),
                   child: Center(
@@ -813,32 +818,13 @@ class PanelSlidingWidget extends StatefulWidget {
 
 class _PanelSlidingWidgetState extends State<PanelSlidingWidget> {
 
-  late int _numWaypoints;
-  late int _totalWaypoints;
-  late bool _returnHome;
-  late double _battery;
-  late bool _sonic;
-  late int _calibration;
-
-  @override
-  void initState() {
-    super.initState();
-  
-    _numWaypoints = widget.numWaypoints;
-    _totalWaypoints = widget.totalWaypoints;
-    _returnHome = widget.returnHome;
-    _battery = widget.battery;
-    _sonic = widget.sonic;
-    _calibration = widget.calibration;
-  }
-
   @override
   Widget build(BuildContext context) {
     String calibrationStatus = "";
 
-    double batPercent = (_battery - 12.8) / (16.8 - 12.8) * 100.0;
+    double batPercent = (widget.battery - 12.8) / (16.8 - 12.8) * 100.0;
 
-    switch (_calibration) {
+    switch (widget.calibration) {
       case 0:
         calibrationStatus = "No confiable";
         break;
@@ -887,7 +873,7 @@ class _PanelSlidingWidgetState extends State<PanelSlidingWidget> {
                                   ),
                                 ),
                                 Text(
-                                  "voltage: ${_battery.toStringAsFixed(2)} V",
+                                  "voltage: ${widget.battery.toStringAsFixed(2)} V",
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 13,
@@ -930,7 +916,7 @@ class _PanelSlidingWidgetState extends State<PanelSlidingWidget> {
                                   ),
                                 ),
                                 Text(
-                                  "Cantidad de Waypoints: $_totalWaypoints", //
+                                  "Cantidad de Waypoints: ${widget.totalWaypoints}", //
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 13,
@@ -939,7 +925,7 @@ class _PanelSlidingWidgetState extends State<PanelSlidingWidget> {
                                   ),
                                 ),
                                 Text(
-                                  "Estado: $_numWaypoints/$_totalWaypoints", //
+                                  "Estado: ${widget.numWaypoints}/${widget.totalWaypoints}", //
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 13,
@@ -985,7 +971,7 @@ class _PanelSlidingWidgetState extends State<PanelSlidingWidget> {
                                   height: 60,
                                   width: 150,
                                   decoration: BoxDecoration(
-                                    color: _returnHome ? const Color(0xFFE26E00) : const Color(0xFFFFBA00),
+                                    color: widget.returnHome ? const Color(0xFFE26E00) : const Color(0xFFFFBA00),
                                     borderRadius: BorderRadius.circular(15.0),
                                   ),
                                   child: Center(
@@ -994,7 +980,7 @@ class _PanelSlidingWidgetState extends State<PanelSlidingWidget> {
                                       mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
                                         Icon(
-                                          _returnHome ? Icons.u_turn_left : Icons.turn_sharp_right,
+                                          widget.returnHome ? Icons.u_turn_left : Icons.turn_sharp_right,
                                           color: Colors.white,
                                           size: 25,
                                         ),
@@ -1002,7 +988,7 @@ class _PanelSlidingWidgetState extends State<PanelSlidingWidget> {
                                         Padding(
                                           padding: const EdgeInsets.only(top: 2),
                                           child: Text(
-                                            _returnHome ? 'Retornando' : 'Ruta Normal',
+                                            widget.returnHome ? 'Retornando' : 'Ruta Normal',
                                             style: const TextStyle(
                                               color: Colors.white,
                                               fontSize: 13,
@@ -1048,7 +1034,7 @@ class _PanelSlidingWidgetState extends State<PanelSlidingWidget> {
                                   height: 60,
                                   width: 150,
                                   decoration: BoxDecoration(
-                                    color: _sonic ? const Color(0xFFDD3800) : const Color(0xFF64BE00),
+                                    color: widget.sonic ? const Color(0xFFDD3800) : const Color(0xFF64BE00),
                                     borderRadius: BorderRadius.circular(15.0),
                                   ),
                                   child: Center(
@@ -1057,7 +1043,7 @@ class _PanelSlidingWidgetState extends State<PanelSlidingWidget> {
                                       mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
                                         Icon(
-                                          _sonic ? Icons.delete_forever : Icons.recycling,
+                                          widget.sonic ? Icons.delete_forever : Icons.recycling,
                                           color: Colors.white,
                                           size: 25,
                                         ),
@@ -1065,7 +1051,7 @@ class _PanelSlidingWidgetState extends State<PanelSlidingWidget> {
                                         Padding(
                                           padding: const EdgeInsets.only(top: 2),
                                           child: Text(
-                                            _sonic ? 'Contenedor Lleno' : 'Contenedor Normal',
+                                            widget.sonic ? 'Contenedor Lleno' : 'Contenedor Normal',
                                             style: const TextStyle(
                                               color: Colors.white,
                                               fontSize: 13,
@@ -1113,7 +1099,7 @@ class _PanelSlidingWidgetState extends State<PanelSlidingWidget> {
                                   ),
                                 ),
                                 Text(
-                                  "Valor de calibración: $_calibration",
+                                  "Valor de calibración: ${widget.calibration}",
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 13,
@@ -1142,7 +1128,7 @@ class _PanelSlidingWidgetState extends State<PanelSlidingWidget> {
                         ),
                         SizedBox(
                           width: MediaQuery.of(context).size.width / 2,
-                          child: RadialTextPointer(calibration: _calibration)
+                          child: RadialTextPointer(calibration: widget.calibration)
                         ),
                       ],
                     )
