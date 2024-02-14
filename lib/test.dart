@@ -11,7 +11,6 @@ import 'package:lottie/lottie.dart' as lottie_package;
 import 'package:syncfusion_flutter_gauges/gauges.dart';
 import 'package:usb_serial/usb_serial.dart';
 import 'package:audioplayers/audioplayers.dart';
-import 'package:sliding_up_panel/sliding_up_panel.dart';
 
 class HomePage extends StatefulWidget {
   final List<List<double>> waypoints;
@@ -299,7 +298,7 @@ class _HomePageState extends State<HomePage> {
     if(distanceMts >= 750 && distanceMts <= 2000  && !sDialog) {
       sDialog = true;
       _showDialog();
-
+      
     } else if(distanceMts < 750 && sDialog) {
       sDialog = false;
     }
@@ -373,59 +372,36 @@ class _HomePageState extends State<HomePage> {
                     height: 120,
                   )
             ) :
-            SlidingUpPanel(
-              renderPanelSheet: true,
-              color: Colors.transparent,
-              minHeight: 70.0,
-              maxHeight: MediaQuery.of(context).size.height / 2,
-              slideDirection: SlideDirection.DOWN,
-              boxShadow: const [
-                BoxShadow(
-                  offset: Offset(0, 10),
-                  blurRadius: 20.0,
-                  color: ui.Color.fromARGB(153, 49, 49, 49),
-                )
-              ],
-              collapsed: const CollapsedSlidingWidget(),
-              panel: PanelSlidingWidget(
-                numWaypoints: numWaypoints,
-                totalWaypoints: _waypoints.length,
-                battery: battery,
-                calibration: calibration,
-                returnHome: returnHome,
-                sonic: sonic
+            GoogleMap(
+              initialCameraPosition: CameraPosition(
+                target: startLocation,
+                zoom: 15,
                 ),
-              body: GoogleMap(
-                initialCameraPosition: CameraPosition(
-                  target: startLocation,
-                  zoom: 15,
+              markers: {
+                ...markers,
+                Marker(
+                  markerId: const MarkerId("workstation"),
+                  position: currentLocation!,
+                  icon: _workstationIcon,
+                  infoWindow: const InfoWindow(
+                    title: "Estación",
+                    snippet: "Aquí se encuentra la estación de control",
                   ),
-                markers: {
-                  ...markers,
-                  Marker(
-                    markerId: const MarkerId("workstation"),
-                    position: currentLocation!,
-                    icon: _workstationIcon,
-                    infoWindow: const InfoWindow(
-                      title: "Estación",
-                      snippet: "Aquí se encuentra la estación de control",
-                    ),
+                ),
+                Marker(
+                  markerId: const MarkerId("usv"),
+                  position: LatLng(latUSV, lonUSV),
+                  icon: _usvIcon,
+                  visible: (latUSV == 0 && lonUSV == 0) ? false : true,
+                  infoWindow: const InfoWindow(
+                    title: "USV",
+                    snippet: "Posición actual del vehículo",
                   ),
-                  Marker(
-                    markerId: const MarkerId("usv"),
-                    position: LatLng(latUSV, lonUSV),
-                    icon: _usvIcon,
-                    visible: (latUSV == 0 && lonUSV == 0) ? false : true,
-                    infoWindow: const InfoWindow(
-                      title: "USV",
-                      snippet: "Posición actual del vehículo",
-                    ),
-                  ),
-                },
-                polylines: _polylines,
-                zoomControlsEnabled: false,
-                mapToolbarEnabled: false,
-              ),
+                ),
+              },
+              polylines: _polylines,
+              zoomControlsEnabled: false,
+              mapToolbarEnabled: false,
             ),
             Positioned(
               bottom: 25.0,
@@ -619,7 +595,7 @@ class _HomePageState extends State<HomePage> {
                     
                               Center(
                                 child: Transform.rotate(
-                                  angle: - heading * pi / 180,
+                                  angle: - (heading - 90) * pi / 180,
                                   child: Container(
                                     width: 100,
                                     height: 100,
@@ -711,7 +687,7 @@ class _HomePageState extends State<HomePage> {
                   height: 60,
                   width: 80,
                   decoration: BoxDecoration(
-                    color: startNav ? const Color(0xFF64BE00) : const Color(0xFFDD3800),
+                    color: startNav ? Colors.green : Colors.red,
                     borderRadius: BorderRadius.circular(15.0),
                   ),
                   child: Center(
@@ -753,545 +729,6 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
       ),
-    );
-  }
-}
-
-class CollapsedSlidingWidget extends StatelessWidget {
-  const CollapsedSlidingWidget({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    // Aquí debes poner tu código para crear el widget que contiene el texto
-    return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF252525),
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(15.0),
-          bottomRight: Radius.circular(15.0),
-        ),
-      ),
-      child: const Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          Icon(
-            Icons.expand_more,
-            color: Colors.white,
-            size: 30,
-          ),
-          SizedBox(
-            height: 5,
-          )
-        ],
-      ),
-    );
-  }
-}
-
-class PanelSlidingWidget extends StatefulWidget {
-
-  final int numWaypoints;
-  final int totalWaypoints;
-  final bool returnHome;
-  final double battery;
-  final bool sonic;
-  final int calibration;
-
-  const PanelSlidingWidget({
-    super.key,
-    required this.numWaypoints,
-    required this.totalWaypoints,
-    required this.returnHome,
-    required this.battery,
-    required this.sonic,
-    required this.calibration
-    });
-
-  @override
-  State<PanelSlidingWidget> createState() => _PanelSlidingWidgetState();
-}
-
-class _PanelSlidingWidgetState extends State<PanelSlidingWidget> {
-
-  late int _numWaypoints;
-  late int _totalWaypoints;
-  late bool _returnHome;
-  late double _battery;
-  late bool _sonic;
-  late int _calibration;
-
-  @override
-  void initState() {
-    super.initState();
-  
-    _numWaypoints = widget.numWaypoints;
-    _totalWaypoints = widget.totalWaypoints;
-    _returnHome = widget.returnHome;
-    _battery = widget.battery;
-    _sonic = widget.sonic;
-    _calibration = widget.calibration;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    String calibrationStatus = "";
-
-    double batPercent = (_battery - 12.8) / (16.8 - 12.8) * 100.0;
-
-    switch (_calibration) {
-      case 0:
-        calibrationStatus = "No confiable";
-        break;
-      case 1:
-        calibrationStatus = "Precisión Baja";
-        break;
-      case 2:
-        calibrationStatus = "Precisión Media";
-        break;
-      case 3:
-        calibrationStatus = "Precisión Alta";
-        break;
-    }
-
-    return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF252525),
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(15.0),
-          bottomRight: Radius.circular(15.0),
-        ),
-      ),
-      child: SafeArea(
-        child: Stack(
-          children: [
-            Container(
-              margin: const EdgeInsets.fromLTRB(0, 10, 0, 40),
-              child: Column(
-                children: [
-                  Expanded(
-                    child: Row(
-                      children: [
-                        CustomContainer(
-                          bottomPadding: 5.0,
-                          child: Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Column(
-                              children: [
-                                const Text(
-                                  "ESTADO DE LA BATERÍA",
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                    fontFamily: 'Roboto Condensed',
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                                Text(
-                                  "voltage: ${_battery.toStringAsFixed(2)} V",
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 13,
-                                    fontFamily: 'Roboto Condensed',
-                                    fontWeight: FontWeight.w400,
-                                  ),
-                                ),
-                                Text(
-                                  "Porcentaje: ${batPercent.toStringAsFixed(0)} %",
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 13,
-                                    fontFamily: 'Roboto Condensed',
-                                    fontWeight: FontWeight.w400,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                const Icon(
-                                  Icons.battery_alert,
-                                  color: Colors.white,
-                                  size: 30,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        CustomContainer(
-                          bottomPadding: 5.0,
-                          child: Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Column(
-                              children: [
-                                const Text(
-                                  "ESTADO DE LOS WAYPOINTS",
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                    fontFamily: 'Roboto Condensed',
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                                Text(
-                                  "Cantidad de Waypoints: $_totalWaypoints", //
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 13,
-                                    fontFamily: 'Roboto Condensed',
-                                    fontWeight: FontWeight.w400,
-                                  ),
-                                ),
-                                Text(
-                                  "Estado: $_numWaypoints/$_totalWaypoints", //
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 13,
-                                    fontFamily: 'Roboto Condensed',
-                                    fontWeight: FontWeight.w400,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                const Icon(
-                                  Icons.my_location,
-                                  color: Colors.white,
-                                  size: 30,
-                                ),
-                              ],
-                            ),
-                          )
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: Row(
-                      children: [
-                        CustomContainer(
-                          bottomPadding: 5.0,
-                          child: Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Column(
-                              children: [
-                                const Text(
-                                  "ESTADO RETORNO A CASA",
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                    fontFamily: 'Roboto Condensed',
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                AnimatedContainer(
-                                  duration: const Duration(milliseconds: 500),
-                                  curve: Curves.easeInOut,
-                                  height: 60,
-                                  width: 150,
-                                  decoration: BoxDecoration(
-                                    color: _returnHome ? const Color(0xFFE26E00) : const Color(0xFFFFBA00),
-                                    borderRadius: BorderRadius.circular(15.0),
-                                  ),
-                                  child: Center(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.center,
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(
-                                          _returnHome ? Icons.u_turn_left : Icons.turn_sharp_right,
-                                          color: Colors.white,
-                                          size: 25,
-                                        ),
-
-                                        Padding(
-                                          padding: const EdgeInsets.only(top: 2),
-                                          child: Text(
-                                            _returnHome ? 'Retornando' : 'Ruta Normal',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 13,
-                                              fontFamily: 'Roboto Condensed',
-                                              fontWeight: FontWeight.w400,
-                                              shadows: [
-                                                Shadow(
-                                                  color: ui.Color.fromARGB(169, 0, 0, 0),
-                                                  offset: Offset(2, 2),
-                                                  blurRadius: 30,
-                                                ),
-                                              ]
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        CustomContainer(
-                          bottomPadding: 5.0,
-                          child: Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Column(
-                              children: [
-                                const Text(
-                                  "ESTADO DE RECOLECCIÓN",
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                    fontFamily: 'Roboto Condensed',
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                AnimatedContainer(
-                                  duration: const Duration(milliseconds: 500),
-                                  curve: Curves.easeInOut,
-                                  height: 60,
-                                  width: 150,
-                                  decoration: BoxDecoration(
-                                    color: _sonic ? const Color(0xFFDD3800) : const Color(0xFF64BE00),
-                                    borderRadius: BorderRadius.circular(15.0),
-                                  ),
-                                  child: Center(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.center,
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(
-                                          _sonic ? Icons.delete_forever : Icons.recycling,
-                                          color: Colors.white,
-                                          size: 25,
-                                        ),
-
-                                        Padding(
-                                          padding: const EdgeInsets.only(top: 2),
-                                          child: Text(
-                                            _sonic ? 'Contenedor Lleno' : 'Contenedor Normal',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 13,
-                                              fontFamily: 'Roboto Condensed',
-                                              fontWeight: FontWeight.w400,
-                                              shadows: [
-                                                Shadow(
-                                                  color: ui.Color.fromARGB(169, 0, 0, 0),
-                                                  offset: Offset(2, 2),
-                                                  blurRadius: 30,
-                                                ),
-                                              ]
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  CustomContainer(
-                    bottomPadding: 0.0,
-                    child: Row(
-                      children: [
-                        SizedBox(
-                          width: (MediaQuery.of(context).size.width / 2) - 20,
-                          child: Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                const Text(
-                                  "CALIBRACIÓN DE LA IMU",
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                    fontFamily: 'Roboto Condensed',
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                                Text(
-                                  "Valor de calibración: $_calibration",
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 13,
-                                    fontFamily: 'Roboto Condensed',
-                                    fontWeight: FontWeight.w400,
-                                  ),
-                                ),
-                                Text(
-                                  "Estado: $calibrationStatus",
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 13,
-                                    fontFamily: 'Roboto Condensed',
-                                    fontWeight: FontWeight.w400,
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                const Icon(
-                                  Icons.assistant_direction_outlined,
-                                  color: Colors.white,
-                                  size: 30,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        SizedBox(
-                          width: MediaQuery.of(context).size.width / 2,
-                          child: RadialTextPointer(calibration: _calibration)
-                        ),
-                      ],
-                    )
-                  ),
-                ],
-              ),
-            ),
-            Positioned(
-              bottom: 5.0,
-              left: (MediaQuery.of(context).size.width / 2) - 15,
-              child: const Icon(
-                Icons.expand_less,
-                color: Colors.white,
-                size: 30,
-              ),
-            )
-          ],
-        ),
-      )
-    );
-  }
-}
-
-class CustomContainer extends StatefulWidget {
-  final double bottomPadding;
-  final Widget child;
-
-  const CustomContainer({
-    super.key,
-    required this.child,
-    required this.bottomPadding
-  });
-
-  @override
-  State<CustomContainer> createState() => _CustomContainerState();
-}
-
-class _CustomContainerState extends State<CustomContainer> {
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          5.0,
-          5.0,
-          5.0,
-          widget.bottomPadding
-        ),
-        child: Container(
-          constraints: const BoxConstraints.expand(),
-          decoration: BoxDecoration(
-            borderRadius: const BorderRadius.all(Radius.circular(5.0)),
-            border: Border.all(
-              width: 1,
-              color: const ui.Color.fromARGB(75, 255, 255, 255)
-            ),
-          ),
-          child: widget.child,
-        ),
-      )
-    );
-  }
-}
-
-class RadialTextPointer extends StatefulWidget {
-  final int calibration;
-  const RadialTextPointer({super.key, required this.calibration});
-
-  @override
-  State<RadialTextPointer> createState() => _RadialTextPointerState();
-}
-
-class _RadialTextPointerState extends State<RadialTextPointer> {
-  @override
-  Widget build(BuildContext context) {
-    return _buildRadialTextPointer();
-  }
-
-  SfRadialGauge _buildRadialTextPointer() {
-    double valuePointer = (30.0 * widget.calibration) + 15.0;
-    return SfRadialGauge(
-      axes: <RadialAxis>[
-        RadialAxis(
-            showAxisLine: false,
-            showLabels: false,
-            showTicks: false,
-            startAngle: 180,
-            endAngle: 360,
-            maximum: 120,
-            canScaleToFit: true,
-            radiusFactor: 1,
-            pointers: <GaugePointer>[
-              NeedlePointer(
-                needleEndWidth: 5,
-                needleLength: 0.7,
-                value: valuePointer,
-                needleColor: Colors.white,
-                knobStyle: const KnobStyle(
-                  knobRadius: 0.1,
-                  color: Colors.white                  
-                )
-              ),
-            ],
-            ranges: <GaugeRange>[
-              GaugeRange(
-                startValue: 0,
-                endValue: 30,
-                startWidth: 0.45,
-                endWidth: 0.45,
-                sizeUnit: GaugeSizeUnit.factor,
-                color: const Color(0xFFDD3800)
-              ),
-              GaugeRange(
-                startValue: 30,
-                endValue: 60,
-                startWidth: 0.45,
-                endWidth: 0.45,
-                sizeUnit: GaugeSizeUnit.factor,
-                color: const Color(0xFFE26E00)
-              ),
-              GaugeRange(
-                startValue: 60,
-                endValue: 90,
-                startWidth: 0.45,
-                sizeUnit: GaugeSizeUnit.factor,
-                endWidth: 0.45,
-                color: const Color(0xFFFFBA00)
-              ),
-              GaugeRange(
-                startValue: 90,
-                endValue: 120,
-                startWidth: 0.45,
-                endWidth: 0.45,
-                sizeUnit: GaugeSizeUnit.factor,
-                color: const Color(0xFF64BE00)
-              ),
-            ]),
-        RadialAxis(
-          showAxisLine: false,
-          showLabels: false,
-          showTicks: false,
-          startAngle: 180,
-          endAngle: 360,
-          maximum: 120,
-          radiusFactor: 1,
-          canScaleToFit: true,
-          pointers: const <GaugePointer>[],
-        ),
-      ],
     );
   }
 }
