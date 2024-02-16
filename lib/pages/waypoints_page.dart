@@ -6,7 +6,7 @@ import 'dart:io';
 import 'package:xml/xml.dart';
 
 class WaypointPage extends StatefulWidget {
-  const WaypointPage({Key? key}) : super(key: key);
+  const WaypointPage({super.key});
 
   @override
   // ignore: library_private_types_in_public_api

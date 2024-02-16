@@ -1,3 +1,4 @@
+import 'package:http/http.dart' as http;
 import 'package:another_flushbar/flushbar.dart';
 import 'package:location/location.dart';
 import 'dart:ui' as ui;
@@ -12,6 +13,7 @@ import 'package:syncfusion_flutter_gauges/gauges.dart';
 import 'package:usb_serial/usb_serial.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
+import 'package:xml/xml.dart';
 
 class HomePage extends StatefulWidget {
   final List<List<double>> waypoints;
@@ -30,6 +32,8 @@ class _HomePageState extends State<HomePage> {
   late UsbPort? _port;
   late List<BitmapDescriptor> _icons;
   
+  late double _declination;
+
   String outputString = "";
   String tempString = "";
   bool waitingForSecondPart = false;
@@ -80,12 +84,41 @@ class _HomePageState extends State<HomePage> {
       _workstationIcon =BitmapDescriptor.fromBytes(onValue!);});
     getBytesFromAsset("assets/USV.png", 128).then((onValue) {
       _usvIcon =BitmapDescriptor.fromBytes(onValue!);});
+
+      try {
+        getDeclination(_waypoints[0][0], _waypoints[0][1])
+            .then((value) {
+          setState(() {
+            _declination = value;
+          });
+        });
+      } catch (e) {
+        _declination = 0.0;
+      }
   }
 
   @override
   void dispose() {
     _port?.close();
     super.dispose();
+  }
+
+  Future<double> getDeclination(double lat, double lon) async {
+    // Construir el Uri con las coordenadas
+    Uri uri = Uri.https('www.ngdc.noaa.gov', '/geomag-web/calculators/calculateDeclination', {
+      'lat1': lat.toString(),
+      'lon1': lon.toString(),
+      'key': 'zNEw7',
+      'resultFormat': 'xml',
+    });
+
+    http.Response response = await http.get(uri);
+    XmlDocument document = XmlDocument.parse(response.body);
+    XmlElement declinationElement = document.findAllElements('declination').first;
+    List<String> responseDec = declinationElement.toString().split("\n");
+    double declination = double.parse(responseDec[1].trim());
+
+    return declination;
   }
 
   static Future<Uint8List?> getBytesFromAsset(String path, int width) async {
@@ -176,6 +209,14 @@ class _HomePageState extends State<HomePage> {
       battery = double.parse(partes[8]);
       sonic = partes[9] == "1" ? true : false;
       calibration = int.parse(partes[10]);
+
+      heading -= _declination;
+
+      if (heading > 180) {
+        heading -= 360;
+      } else if (heading< -180) {
+        heading += 360;
+      }
 
       if(latUSV == -999.0 || lonUSV == -999.0) {
         _distanceValue = 0.0;
@@ -294,8 +335,7 @@ class _HomePageState extends State<HomePage> {
     // Fórmula del semiverseno
     dlat = lat2 - lat1;
     dlng = lng2 - lng1;
-    a = sin(dlat / 2) * sin(dlat / 2) +
-        cos(lat1) * cos(lat2) * sin(dlng / 2) * sin(dlng / 2);
+    a = sin(dlat / 2) * sin(dlat / 2) + cos(lat1) * cos(lat2) * sin(dlng / 2) * sin(dlng / 2);
     c = 2 * atan2(sqrt(a), sqrt(1 - a));
 
     // Calcular la distancia en kilómetros y convertirla a metros
