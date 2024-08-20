@@ -61,7 +61,7 @@ class _HomePageState extends State<HomePage> {
   String navMode = "M";
   bool startNav = false;
   bool returnHome = false;
-  double battery = 0;
+  double battery = 14.5;
   bool sonic = false;
   int calibration = 0;
 
@@ -80,10 +80,7 @@ class _HomePageState extends State<HomePage> {
     _drawInitialPolyline();
     _initCompass();
 
-    getBytesFromAsset("assets/workstation.png", 128).then((onValue) {
-      _workstationIcon =BitmapDescriptor.fromBytes(onValue!);});
-    getBytesFromAsset("assets/USV.png", 128).then((onValue) {
-      _usvIcon =BitmapDescriptor.fromBytes(onValue!);});
+    setCustomMarkerIcon();
 
       try {
         getDeclination(_waypoints[0][0], _waypoints[0][1])
@@ -103,6 +100,32 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
+  Future<void> setCustomMarkerIcon() async {
+    _workstationIcon = await getBitmapDescriptorFromAssetWithScale("assets/workstation.png", 0.12);
+    _usvIcon = await getBitmapDescriptorFromAssetWithScale("assets/USV.png", 0.12);
+  }
+
+  Future<BitmapDescriptor> getBitmapDescriptorFromAssetWithScale(String assetName, double scale) async {
+    ImageConfiguration config = const ImageConfiguration();
+
+    ImageStream stream = AssetImage(assetName).resolve(config);
+    Completer<ImageInfo> completer = Completer();
+    stream.addListener(ImageStreamListener((ImageInfo info, bool _) {
+      completer.complete(info);
+    }));
+    ImageInfo imageInfo = await completer.future;
+
+    int newWidth = (imageInfo.image.width * scale).round();
+    int newHeight = (imageInfo.image.height * scale).round();
+
+    return BitmapDescriptor.asset(
+      config,
+      assetName,
+      width: newWidth.toDouble(),
+      height: newHeight.toDouble(),
+    );
+  }
+
   Future<double> getDeclination(double lat, double lon) async {
     // Construir el Uri con las coordenadas
     Uri uri = Uri.https('www.ngdc.noaa.gov', '/geomag-web/calculators/calculateDeclination', {
@@ -119,13 +142,6 @@ class _HomePageState extends State<HomePage> {
     double declination = double.parse(responseDec[1].trim());
 
     return declination;
-  }
-
-  static Future<Uint8List?> getBytesFromAsset(String path, int width) async {
-    ByteData data = await rootBundle.load(path);
-    ui.Codec codec = await ui.instantiateImageCodec(data.buffer.asUint8List(), targetWidth: width);
-    ui.FrameInfo fi = await codec.getNextFrame();
-    return (await fi.image.toByteData(format: ui.ImageByteFormat.png))?.buffer.asUint8List();
   }
 
   void _initCompass() {
@@ -856,13 +872,121 @@ class PanelSlidingWidget extends StatefulWidget {
   State<PanelSlidingWidget> createState() => _PanelSlidingWidgetState();
 }
 
-class _PanelSlidingWidgetState extends State<PanelSlidingWidget> {
+class _PanelSlidingWidgetState extends State<PanelSlidingWidget> with SingleTickerProviderStateMixin {
+  bool isRunning = false;
+  int elapsedMilliseconds = 0;
+  DateTime? startTime;
+  Timer? timer;
+  late AnimationController _animationController;
+  late Animation<Color?> _colorAnimation;
+  late Animation<double> _iconScaleAnimation;
 
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this, // ERROR: The argument type '_PanelSlidingWidgetState' can't be assigned to the parameter type 'TickerProvider'.
+    );
+
+    _colorAnimation = ColorTween(
+      begin: Colors.green,
+      end: Colors.red,
+    ).animate(_animationController);
+
+    _iconScaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
+      reverseCurve: const Interval(0.5, 1.0, curve: Curves.easeIn),
+    ));
+  }
+
+  void _startStop() {
+    setState(() {
+      isRunning = !isRunning;
+    });
+
+    if (isRunning) {
+      startTime = DateTime.now().subtract(Duration(milliseconds: elapsedMilliseconds));
+      timer = Timer.periodic(const Duration(milliseconds: 16), _updateTime);
+      _animationController.forward();
+    } else {
+      timer?.cancel();
+      _animationController.reverse();
+    }
+
+    HapticFeedback.vibrate();
+  }
+
+  void _updateTime(Timer timer) {
+    if (startTime != null) {
+      setState(() {
+        elapsedMilliseconds = DateTime.now().difference(startTime!).inMilliseconds;
+      });
+    }
+  }
+
+  String _formatTime() {
+    int hundreds = (elapsedMilliseconds / 10).floor() % 100;
+    int seconds = (elapsedMilliseconds / 1000).floor() % 60;
+    int minutes = (elapsedMilliseconds / 60000).floor();
+
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}:${hundreds.toString().padLeft(2, '0')}';
+  }
+
+  void _showResetConfirmationDialog() {
+     _playSound("alert.wav");
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Resetear Cronómetro'),
+          content: const Text('¿Estás seguro de que quieres resetear el cronómetro?'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancelar'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: const Text('Resetear'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                setState(() {
+                  isRunning = false;
+                  elapsedMilliseconds = 0;
+                  startTime = null;
+                });
+                timer?.cancel();
+                _animationController.reverse();
+                HapticFeedback.vibrate();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _playSound(file) async {
+    final player = AudioPlayer();
+    await player.play(AssetSource(file));
+  }
+
+  @override
+  void dispose() {
+    timer?.cancel();
+    _animationController.dispose();
+    super.dispose();
+  }
   @override
   Widget build(BuildContext context) {
     String calibrationStatus = "";
-
-    double batPercent = (widget.battery - 12.8) / (16.8 - 12.8) * 100.0;
 
     switch (widget.calibration) {
       case 0:
@@ -898,48 +1022,96 @@ class _PanelSlidingWidgetState extends State<PanelSlidingWidget> {
                     child: Row(
                       children: [
                         CustomContainer(
-                          bottomPadding: 5.0,
-                          child: Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Column(
-                              children: [
-                                const Text(
-                                  "ESTADO DE LA BATERÍA",
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                    fontFamily: 'Roboto Condensed',
-                                    fontWeight: FontWeight.w800,
-                                  ),
+                              bottomPadding: 5.0,
+                              child: Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Column(
+                                  children: [
+                                    const Text(
+                                      "CRONÓMETRO INTEGRADO",
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 14,
+                                        fontFamily: 'Roboto Condensed',
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      children: [
+                                        Column(
+                                          children: [
+                                            AnimatedBuilder(
+                                              animation: _animationController,
+                                              builder: (context, child) {
+                                                return Material(
+                                                  color: Colors.transparent,
+                                                  child: InkWell(
+                                                    onTap: _startStop,
+                                                    borderRadius: BorderRadius.circular(5),
+                                                    child: Container(
+                                                      width: 60,
+                                                      height: 30,
+                                                      decoration: BoxDecoration(
+                                                        color: _colorAnimation.value,
+                                                        borderRadius: BorderRadius.circular(5),
+                                                      ),
+                                                      child: Stack(
+                                                        alignment: Alignment.center,
+                                                        children: [
+                                                          ScaleTransition(
+                                                            scale: _iconScaleAnimation,
+                                                            child: const Icon(Icons.play_arrow, color: Colors.white),
+                                                          ),
+                                                          ScaleTransition(
+                                                            scale: ReverseAnimation(_iconScaleAnimation),
+                                                            child: const Icon(Icons.pause, color: Colors.white),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Material(
+                                              color: Colors.transparent,
+                                              child: InkWell(
+                                                onTap: _showResetConfirmationDialog,
+                                                borderRadius: BorderRadius.circular(5),
+                                                child: Container(
+                                                  width: 60,
+                                                  height: 30,
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.white,
+                                                    borderRadius: BorderRadius.circular(5),
+                                                  ),
+                                                  child: const Icon(
+                                                    Icons.refresh,
+                                                    color: Colors.black,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          _formatTime(),
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 28,
+                                            fontFamily: 'Roboto Condensed',
+                                          ),
+                                        )
+                                      ],
+                                    )
+                                  ],
                                 ),
-                                Text(
-                                  "voltage: ${widget.battery.toStringAsFixed(2)} V",
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 13,
-                                    fontFamily: 'Roboto Condensed',
-                                    fontWeight: FontWeight.w400,
-                                  ),
-                                ),
-                                Text(
-                                  "Porcentaje: ${batPercent.toStringAsFixed(0)} %",
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 13,
-                                    fontFamily: 'Roboto Condensed',
-                                    fontWeight: FontWeight.w400,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                const Icon(
-                                  Icons.battery_alert,
-                                  color: Colors.white,
-                                  size: 30,
-                                ),
-                              ],
+                              ),
                             ),
-                          ),
-                        ),
+
                         CustomContainer(
                           bottomPadding: 5.0,
                           child: Padding(

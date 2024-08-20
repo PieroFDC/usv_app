@@ -1,4 +1,3 @@
-import 'dart:ui' as ui;
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -152,20 +151,31 @@ class _SerialPageState extends State<SerialPage> {
     );
   }
 
-  void setCustomMarkerIcon() {
-    getBytesFromAsset('assets/flag.png', 128).then((onValue) {
-          _icons[0] =BitmapDescriptor.fromBytes(onValue!);});
-    getBytesFromAsset('assets/green_pin.png', 64).then((onValue) {
-          _icons[1] =BitmapDescriptor.fromBytes(onValue!);});
-    getBytesFromAsset('assets/red_pin.png', 64).then((onValue) {
-          _icons[2] =BitmapDescriptor.fromBytes(onValue!);});
+  Future<void> setCustomMarkerIcon() async {
+    _icons[0] = await getBitmapDescriptorFromAssetWithScale('assets/flag.png', 0.25);
+    _icons[1] = await getBitmapDescriptorFromAssetWithScale('assets/green_pin.png', 0.2);
+    _icons[2] = await getBitmapDescriptorFromAssetWithScale('assets/red_pin.png', 0.2);
   }
 
-  static Future<Uint8List?> getBytesFromAsset(String path, int width) async {
-    ByteData data = await rootBundle.load(path);
-    ui.Codec codec = await ui.instantiateImageCodec(data.buffer.asUint8List(), targetWidth: width);
-    ui.FrameInfo fi = await codec.getNextFrame();
-    return (await fi.image.toByteData(format: ui.ImageByteFormat.png))?.buffer.asUint8List();
+  Future<BitmapDescriptor> getBitmapDescriptorFromAssetWithScale(String assetName, double scale) async {
+    ImageConfiguration config = const ImageConfiguration();
+
+    ImageStream stream = AssetImage(assetName).resolve(config);
+    Completer<ImageInfo> completer = Completer();
+    stream.addListener(ImageStreamListener((ImageInfo info, bool _) {
+      completer.complete(info);
+    }));
+    ImageInfo imageInfo = await completer.future;
+
+    int newWidth = (imageInfo.image.width * scale).round();
+    int newHeight = (imageInfo.image.height * scale).round();
+
+    return BitmapDescriptor.asset(
+      config,
+      assetName,
+      width: newWidth.toDouble(),
+      height: newHeight.toDouble(),
+    );
   }
 
   @override
