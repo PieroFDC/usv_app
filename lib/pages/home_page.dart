@@ -52,7 +52,9 @@ class _HomePageState extends State<HomePage> {
 
   // from USV
   // <latUSV,lonUSV,heading,_velocityValue,numWaypoints, navMode, startNav, returnHome, battery, sonic, calibration>
+  // Example:
   // <-12.862966,-72.693329,120,0.5,0,M,false,false,14.8,false,3>
+
   double velocityValue = 0;
   double heading = 0;
   double latUSV = 0;

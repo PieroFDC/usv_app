@@ -268,8 +268,7 @@ class _SerialPageState extends State<SerialPage> {
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        // onPressed: _status == "Conectado" ? () => _navigateToHomePage() : null,
-        onPressed: () => _navigateToHomePage(),
+        onPressed: _status == "Conectado" ? () => _navigateToHomePage() : null,
         icon: const Icon(
           Icons.queue_play_next,
           color: Colors.white,
